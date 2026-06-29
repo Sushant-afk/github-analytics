@@ -1,0 +1,3 @@
+.venv/
+ivy_cache/
+.env

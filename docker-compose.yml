@@ -1,0 +1,17 @@
+services:
+  spark:
+    build: .
+    container_name: spark
+
+    volumes:
+      - .:/app
+
+    working_dir: /app
+
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ap-south-1
+
+    stdin_open: true
+    tty: true
