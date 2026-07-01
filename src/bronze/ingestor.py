@@ -29,6 +29,8 @@ def pullDataFromGithub(url, file_name):
         print(f"Exception error occured: {e}")
     return False
 
+
+
 def uploadToS3(file_name):
     s3_client = boto3.client('s3')
     file_path = f"data/bronze/tmp/{file_name}.gz"
