@@ -1,3 +1,5 @@
 .venv/
 ivy_cache/
 .env
+src/gold/tmp
+src/bronze/tmp
