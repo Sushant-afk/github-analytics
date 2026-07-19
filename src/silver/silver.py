@@ -24,72 +24,7 @@ def createSparkSession():
     .config("spark.hadoop.fs.s3a.secret.key", aws_secret_key)\
     .config("spark.driver.host", "127.0.0.1")\
     .config("spark.driver.bindAddress", "127.0.0.1")\
-    .getOrCreate()
-
-
-def main():
-    spark = createSparkSession()
-    actorType = StructType([
-        StructField("id", LongType(), True),
-        StructField("login", StringType(), True)
-    ])
-    orgType = StructType([
-        StructField("id", LongType(), True),
-        StructField("login", StringType(), True)
-    ])
-    repoType = StructType([
-        StructField("id", LongType(), True),
-        # StructField("login", StringType(), True),   ### to be removed, no field as login
-        StructField("name", StringType(), True)
-    ])
-    df_schema = StructType([
-        StructField("id", StringType(), True),
-        StructField("created_at", DateType(), True),
-        StructField("org", orgType, True),
-        StructField("actor", actorType, True),
-        StructField("repo", repoType, True),
-        StructField("type", StringType(), True),
-        StructField("payload", StringType()),        
-        StructField("public", BooleanType(), True)
-    ])
-
-    dt = datetime.now()
-    fetch_time = datetime.now(timezone.utc) - timedelta(hours=6)
-    # file_path = (
-    # f"s3a://github-analytics90416-669003566676-ap-southeast-2-an/"
-    # f"archives/{dt.strftime('%Y')}/{dt.strftime('%b')}/"
-    # f"{dt.strftime('%d')}/{fetch_time.strftime('%H')}.gz"
-    # )
-
-    try:
-        # file_path = "s3a://github-analytics90416-669003566676-ap-southeast-2-an/archives/2026/Jun/28/03.gz"
-        output_file_path = "s3a://github-analytics90416-669003566676-ap-southeast-2-an/parquet1/2026/Jun/28/03/"
-
-        # df_raw = spark.read.option("header", "true").json(file_path, schema=df_schema)
-        # print(df_raw.printSchema())
-        # print("Fetch complete")
-        # df_raw.write.mode('overwrite').parquet(output_file_path)
-
-        silver_path = "s3a://github-analytics90416-669003566676-ap-southeast-2-an/silver/2026/Jun/28/03/"
-        df = spark.read.parquet(output_file_path)
-        df = addDatePartitions(df)
-        print("addDatePartitions completed")
-        df = parsePushEvent(df)
-        print("parsePushEvent completed")
-        df = parsePullEvent(df)
-        print("parsePullEvent completed")
-        df = parseIssueEvent(df)
-        print("parseIssueEvent completed")
-        df = addForkTag(df)
-        print("addForkTag completed")
-        df = df.drop(f.col("payload"))
-
-        df.coalesce(1).write.mode("overwrite").parquet(silver_path)
-
-    except Exception as e:
-        # Catches general python, network, or OS-level file system failures
-        print(f"Unexpected Pipeline Error: {str(e)}")
-    
+    .getOrCreate()    
 
 
 def addDatePartitions(df):
@@ -145,7 +80,87 @@ def parseIssueEvent(df):
     return df
 
 
+def silver_main(fetch_time):
+    spark = createSparkSession()
+    actorType = StructType([
+        StructField("id", LongType(), True),
+        StructField("login", StringType(), True)
+    ])
+    orgType = StructType([
+        StructField("id", LongType(), True),
+        StructField("login", StringType(), True)
+    ])
+    repoType = StructType([
+        StructField("id", LongType(), True),
+        # StructField("login", StringType(), True),   ### to be removed, no field as login
+        StructField("name", StringType(), True)
+    ])
+    df_schema = StructType([
+        StructField("id", StringType(), True),
+        StructField("created_at", DateType(), True),
+        StructField("org", orgType, True),
+        StructField("actor", actorType, True),
+        StructField("repo", repoType, True),
+        StructField("type", StringType(), True),
+        StructField("payload", StringType()),        
+        StructField("public", BooleanType(), True)
+    ])
+
+    file_path = (
+        f"s3a://github-analytics90416-669003566676-ap-southeast-2-an/"
+        f"archives/{fetch_time.strftime('%Y')}/{fetch_time.strftime('%b')}/"
+        f"{fetch_time.strftime('%d')}/{fetch_time.strftime('%#H')}.gz"
+    )
+
+    output_file_path = (
+        f"s3a://github-analytics90416-669003566676-ap-southeast-2-an/"
+        f"parquet1/{fetch_time.strftime('%Y')}/{fetch_time.strftime('%b')}/"
+        f"{fetch_time.strftime('%d')}/"
+    )
+
+    silver_path = (
+        f"s3a://github-analytics90416-669003566676-ap-southeast-2-an/"
+        f"silver/{fetch_time.strftime('%Y')}/{fetch_time.strftime('%b')}/"
+        f"{fetch_time.strftime('%d')}/"
+    )
+
+    #hardcoded during dev
+    # file_path = "s3a://github-analytics90416-669003566676-ap-southeast-2-an/archives/2026/Jun/28/03.gz"
+    # output_file_path = "s3a://github-analytics90416-669003566676-ap-southeast-2-an/parquet1/2026/Jun/28/03/"
+    # silver_path = "s3a://github-analytics90416-669003566676-ap-southeast-2-an/silver/2026/Jun/28/03/"
+
+    try:
+        df_raw = spark.read.option("header", "true").json(file_path, schema=df_schema)
+        print(df_raw.printSchema())
+        print("Fetch complete")
+        df_raw.write.mode('overwrite').parquet(output_file_path)
+
+        df = spark.read.parquet(output_file_path)
+        df = addDatePartitions(df)
+        print("addDatePartitions completed")
+        df = parsePushEvent(df)
+        print("parsePushEvent completed")
+        df = parsePullEvent(df)
+        print("parsePullEvent completed")
+        df = parseIssueEvent(df)
+        print("parseIssueEvent completed")
+        df = addForkTag(df)
+        print("addForkTag completed")
+        df = df.drop(f.col("payload"))
+
+        df.coalesce(1).write.mode("overwrite").parquet(silver_path)
+
+    except Exception as e:
+        # Catches general python, network, or OS-level file system failures
+        print(f"Unexpected Pipeline Error: {str(e)}")
+        raise
+
+
 if __name__ == "__main__":
-    main()
+    import sys
+    from datetime import datetime
+
+    fetch_time = datetime.fromisoformat(sys.argv[1])
+    silver_main(fetch_time)
 
 
