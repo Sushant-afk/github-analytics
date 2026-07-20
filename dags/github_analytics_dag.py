@@ -15,6 +15,9 @@ def github_analytics():
     def fetch_time_str(context):
         return (context["logical_date"] - timedelta(hours=6)).isoformat()
 
+    
+    # BashOperator will create a task for my dag
+    # SPARK SUBMIT WILL HELP ME RUN MY SPARK CODE IN THE PYTHON FILE AS WE CAN'T DO python xyz.py for spark code
     bronze_task = BashOperator(
         task_id="bronze",
         bash_command=(
